@@ -32,8 +32,8 @@ function makePorts(behavior: {
   };
 }
 
-const macLocal: TerminalEnv = { isRemote: false, wayland: false, platform: 'darwin', shell: '/bin/zsh' };
-const linuxRemote: TerminalEnv = { isRemote: true, wayland: false, platform: 'linux', shell: '/bin/bash' };
+const macLocal: TerminalEnv = { isRemote: false, wayland: false, platform: 'darwin', shell: '/bin/zsh', termProgram: 'ghostty' };
+const linuxRemote: TerminalEnv = { isRemote: true, wayland: false, platform: 'linux', shell: '/bin/bash', termProgram: null };
 
 describe('copyText 폴백 체인 (TECH-SPEC T1)', () => {
   it('로컬 macOS: pbcopy 성공 시 즉시 종료', async () => {
@@ -68,7 +68,7 @@ describe('copyText 폴백 체인 (TECH-SPEC T1)', () => {
   });
 
   it('로컬 Linux Wayland: wl-copy 우선, 실패 시 xclip', async () => {
-    const env: TerminalEnv = { isRemote: false, wayland: true, platform: 'linux', shell: '/bin/bash' };
+    const env: TerminalEnv = { isRemote: false, wayland: true, platform: 'linux', shell: '/bin/bash', termProgram: null };
     const { ports, calls } = makePorts({ toolSuccess: ['xclip'] });
     const outcome = await copyText('내용', env, ports);
     expect(calls.tools).toEqual(['wl-copy', 'xclip']);

@@ -9,6 +9,8 @@ export interface TerminalEnv {
   readonly wayland: boolean;
   readonly platform: NodeJS.Platform;
   readonly shell: string;
+  /** 터미널 에뮬레이터 식별자 (예: ghostty, iTerm.app) — 모르면 null */
+  readonly termProgram: string | null;
 }
 
 export function detectTerminalEnv(env: NodeJS.ProcessEnv = process.env): TerminalEnv {
@@ -17,5 +19,6 @@ export function detectTerminalEnv(env: NodeJS.ProcessEnv = process.env): Termina
     wayland: env['WAYLAND_DISPLAY'] !== undefined,
     platform: process.platform,
     shell: env['SHELL'] ?? '/bin/sh',
+    termProgram: env['TERM_PROGRAM'] ?? null,
   };
 }
