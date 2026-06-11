@@ -7,6 +7,7 @@ import type { Logger } from '../utils/logger.js';
 import { parseArgs } from '../utils/parse-args.js';
 import { blockCommand } from './block-command.js';
 import { contextCommand } from './context-command.js';
+import { doctorCommand } from './doctor-command.js';
 import { openCommand } from './open-command.js';
 import { runCommand } from './run-command.js';
 import type { CliResult } from './result.js';
@@ -32,6 +33,7 @@ const USAGE = `Campsite TUI — 터미널 작업을 증거 블록으로 (블록,
   cstui context                          현재 컨텍스트 표시 (--json 지원)
   cstui context set [--task "..."]       컨텍스트 설정
                     [--agent Codex] [--mode review] [--motif campsite]
+  cstui doctor [--json]                  환경 진단 (캡처·저장·복사 경로)
   cstui --version | -v                   버전 출력
   cstui --help | -h                      이 도움말 출력
 
@@ -57,6 +59,8 @@ export async function runCli(argv: readonly string[], deps: CliDeps): Promise<Cl
       return blockCommand(args, deps);
     case 'open':
       return openCommand(deps);
+    case 'doctor':
+      return doctorCommand(args, deps);
     default:
       return { exitCode: 1, output: `알 수 없는 인수: ${first}\n\n${USAGE}` };
   }
