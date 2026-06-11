@@ -1,0 +1,59 @@
+{
+  "name": "campsite-tui",
+  "version": "0.1.0",
+  "description": "터미널 작업을 컨텍스트가 붙은 명령 블록으로 — agent 시대의 evidence surface",
+  "type": "module",
+  "license": "MIT",
+  "author": "ReliOptic",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ReliOptic/campsite-tui.git"
+  },
+  "homepage": "https://github.com/ReliOptic/campsite-tui#readme",
+  "bugs": {
+    "url": "https://github.com/ReliOptic/campsite-tui/issues"
+  },
+  "keywords": [
+    "tui",
+    "terminal",
+    "cli",
+    "clipboard",
+    "markdown",
+    "agent",
+    "evidence",
+    "pty"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "cstui": "dist/index.js",
+    "campsite-tui": "dist/index.js"
+  },
+  "main": "dist/index.js",
+  "files": [
+    "dist",
+    "scripts"
+  ],
+  "scripts": {
+    "postinstall": "node scripts/fix-spawn-helper.mjs",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build",
+    "build": "tsc -p tsconfig.json && chmod +x dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "ink": "^7.0.5",
+    "node-pty": "^1.1.0",
+    "react": "^19.2.7",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.3",
+    "@types/react": "^19.2.17",
+    "ink-testing-library": "^4.0.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.8"
+  }
+}
