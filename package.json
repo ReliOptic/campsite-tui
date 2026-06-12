@@ -1,6 +1,6 @@
 {
   "name": "campsite-tui",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "터미널 작업을 컨텍스트가 붙은 명령 블록으로 — agent 시대의 evidence surface",
   "type": "module",
   "license": "MIT",
