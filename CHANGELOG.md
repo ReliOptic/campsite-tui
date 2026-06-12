@@ -16,7 +16,7 @@
 ### Notes
 
 - This is a patch release candidate for the Linux evidence-integrity fix from PR #9.
-- Follow-up issue #10 tracks non-blocking improvements: detach stdin immediately at exit and reduce Linux's bounded drain latency when safe.
+- Follow-up issue #10 tracks non-blocking improvements: detach stdin immediately at exit and reduce Linux's conservative bounded drain latency when safe.
 - npm publish is intentionally not performed by this commit; publish still requires maintainer OTP.
 
 ## 0.1.0 — 2026-06-11

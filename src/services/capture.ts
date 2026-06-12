@@ -8,7 +8,7 @@ import { nowIso } from '../utils/time.js';
 
 const DEFAULT_CAP_BYTES = 2 * 1024 * 1024;
 const EXIT_DRAIN_QUIET_MS = 30;
-const EXIT_DRAIN_MAX_MS = 300;
+const EXIT_DRAIN_MAX_MS = process.platform === 'linux' ? 1000 : 300;
 const EXIT_DRAIN_MIN_MS = process.platform === 'linux' ? EXIT_DRAIN_MAX_MS : EXIT_DRAIN_QUIET_MS;
 const ALT_SCREEN_PATTERNS = ['\u001b[?1049h', '\u001b[?47h', '\u001b[?1047h'] as const;
 
@@ -210,8 +210,8 @@ export async function captureCommand(
 
       // onExit can arrive before the final onData chunk on Linux. Treat exit as
       // the start of a short drain window, then extend it whenever more data lands.
-      // Linux PTY delivery can leave >30ms gaps before tail chunks, so Linux keeps
-      // the bounded drain open until the 300ms cap while duration_ms stays exit-based.
+      // Linux PTY delivery can leave long gaps before tail chunks, so Linux keeps
+      // the bounded drain open until the 1s cap while duration_ms stays exit-based.
       lastDataAt = Date.now();
       scheduleDrainCheck();
       maxTimer = setTimeout(finish, EXIT_DRAIN_MAX_MS);
