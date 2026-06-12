@@ -7,6 +7,9 @@ import { CampsiteError } from '../types/errors.types.js';
 import { nowIso } from '../utils/time.js';
 
 const DEFAULT_CAP_BYTES = 2 * 1024 * 1024;
+const EXIT_DRAIN_QUIET_MS = 30;
+const EXIT_DRAIN_MAX_MS = 300;
+const EXIT_DRAIN_MIN_MS = process.platform === 'linux' ? EXIT_DRAIN_MAX_MS : EXIT_DRAIN_QUIET_MS;
 const ALT_SCREEN_PATTERNS = ['\u001b[?1049h', '\u001b[?47h', '\u001b[?1047h'] as const;
 
 export interface CaptureOptions {
@@ -152,29 +155,66 @@ export async function captureCommand(
 
   const buffer = new CappedBuffer(Math.floor((options.maxBytes ?? DEFAULT_CAP_BYTES) / 2));
   let interactive = false;
+  let lastDataAt = Date.now();
+  let scheduleDrainCheck: (() => void) | undefined;
 
   proc.onData((chunk: string) => {
+    lastDataAt = Date.now();
     if (!interactive && ALT_SCREEN_PATTERNS.some((pattern) => chunk.includes(pattern))) {
       interactive = true;
     }
     buffer.push(chunk);
     if (stdout !== null) stdout.write(chunk);
+    scheduleDrainCheck?.();
   });
 
   const detachTerminal = attachTerminal(proc, stdout, stdin);
   return new Promise((resolve) => {
     proc.onExit(({ exitCode, signal }) => {
-      detachTerminal();
-      resolve({
-        output: buffer.value(),
-        exit_code: exitCode,
-        signal: signal === undefined || signal === 0 ? null : signal,
-        started_at: startedAt,
-        ended_at: nowIso(),
-        duration_ms: Date.now() - startedMs,
-        interactive,
-        truncated: buffer.truncated,
-      });
+      const endedAt = nowIso();
+      const durationMs = Date.now() - startedMs;
+      const drainStartedMs = Date.now();
+      let quietTimer: ReturnType<typeof setTimeout> | undefined;
+      let maxTimer: ReturnType<typeof setTimeout> | undefined;
+      let resolved = false;
+
+      const finish = (): void => {
+        if (resolved) return;
+        resolved = true;
+        if (quietTimer !== undefined) clearTimeout(quietTimer);
+        if (maxTimer !== undefined) clearTimeout(maxTimer);
+        scheduleDrainCheck = undefined;
+        detachTerminal();
+        resolve({
+          output: buffer.value(),
+          exit_code: exitCode,
+          signal: signal === undefined || signal === 0 ? null : signal,
+          started_at: startedAt,
+          ended_at: endedAt,
+          duration_ms: durationMs,
+          interactive,
+          truncated: buffer.truncated,
+        });
+      };
+
+      scheduleDrainCheck = (): void => {
+        if (resolved) return;
+        if (quietTimer !== undefined) clearTimeout(quietTimer);
+        const quietForMs = Date.now() - lastDataAt;
+        const drainElapsedMs = Date.now() - drainStartedMs;
+        const quietWaitMs = Math.max(EXIT_DRAIN_QUIET_MS - quietForMs, 0);
+        const minWaitMs = Math.max(EXIT_DRAIN_MIN_MS - drainElapsedMs, 0);
+        const waitMs = Math.max(quietWaitMs, minWaitMs);
+        quietTimer = setTimeout(finish, waitMs);
+      };
+
+      // onExit can arrive before the final onData chunk on Linux. Treat exit as
+      // the start of a short drain window, then extend it whenever more data lands.
+      // Linux PTY delivery can leave >30ms gaps before tail chunks, so Linux keeps
+      // the bounded drain open until the 300ms cap while duration_ms stays exit-based.
+      lastDataAt = Date.now();
+      scheduleDrainCheck();
+      maxTimer = setTimeout(finish, EXIT_DRAIN_MAX_MS);
     });
   });
 }

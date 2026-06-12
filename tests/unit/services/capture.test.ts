@@ -50,4 +50,13 @@ describe('captureCommand', () => {
     expect(result.output).toContain('2000');  // tail 보존
     expect(Buffer.byteLength(result.output, 'utf8')).toBeLessThan(3000);
   });
+
+  it('빠르게 종료되는 PTY의 마지막 출력 tail을 드레인한다', async () => {
+    for (let i = 0; i < 10; i += 1) {
+      const result = await captureCommand('seq 1 5000', opts);
+      expect(result.exit_code).toBe(0);
+      expect(result.truncated).toBe(false);
+      expect(result.output).toContain('5000');
+    }
+  });
 });
