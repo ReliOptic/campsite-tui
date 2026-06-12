@@ -62,16 +62,35 @@ describe('runCli', () => {
     expect(after.output).toContain('Hermes');
   });
 
-  it('context --json은 파싱 가능한 JSON을 출력한다', async () => {
+  it('context --json: schema_version·session·detected·environment 핸드오프 페이로드', async () => {
     const deps = await makeDeps();
     await runCli(['context', 'set', '--task', 't1'], deps);
     const result = await runCli(['context', '--json'], deps);
     const parsed = JSON.parse(result.output) as {
+      schema_version: number;
       session: { task: string };
-      detected: { cwd: string };
+      detected: { cwd: string; repo_root: string | null; remote_url: string | null };
+      environment: { node: string; platform: string; terminal: { remote: boolean } };
     };
+    expect(parsed.schema_version).toBe(1);
     expect(parsed.session.task).toBe('t1');
     expect(parsed.detected.cwd).toBe(deps.cwd);
+    expect(parsed.detected.repo_root).toBeNull(); // tmpdir는 git 저장소 아님
+    expect(parsed.environment.node).toBe(process.versions.node);
+    expect(typeof parsed.environment.terminal.remote).toBe('boolean');
+  });
+
+  it('context --json: 세션이 없어도 동일 스키마(session=null)로 출력한다', async () => {
+    const deps = await makeDeps();
+    const result = await runCli(['context', '--json'], deps);
+    const parsed = JSON.parse(result.output) as {
+      schema_version: number;
+      session: null;
+      environment: { node: string };
+    };
+    expect(parsed.schema_version).toBe(1);
+    expect(parsed.session).toBeNull();
+    expect(parsed.environment.node).toBe(process.versions.node);
   });
 
   it('잘못된 motif는 1로 종료하고 허용값을 안내한다', async () => {
