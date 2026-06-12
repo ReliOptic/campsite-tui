@@ -4,7 +4,11 @@ import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
-import { detectContext, parseRepoFromRemote } from '../../../src/services/context.js';
+import {
+  detectContext,
+  parseRepoFromRemote,
+  stripCredentials,
+} from '../../../src/services/context.js';
 
 const exec = promisify(execFile);
 
@@ -31,6 +35,18 @@ describe('parseRepoFromRemote', () => {
   });
 });
 
+describe('stripCredentials', () => {
+  it('HTTPS URL의 user:password를 제거한다', () => {
+    expect(stripCredentials('https://user:secret123@github.com/o/r.git')).toBe(
+      'https://github.com/o/r.git',
+    );
+  });
+  it('자격증명 없는 URL과 SCP형은 그대로 둔다', () => {
+    expect(stripCredentials('https://github.com/o/r.git')).toBe('https://github.com/o/r.git');
+    expect(stripCredentials('git@github.com:o/r.git')).toBe('git@github.com:o/r.git');
+  });
+});
+
 describe('detectContext', () => {
   it('git 저장소: branch 감지, 커밋 직후 clean', async () => {
     const dir = await makeGitRepo();
@@ -52,11 +68,25 @@ describe('detectContext', () => {
     expect((await detectContext(dir)).repo).toBe('ReliOptic/campsite');
   });
 
+  it('repo_root와 자격증명 제거된 remote_url을 노출한다', async () => {
+    const dir = await makeGitRepo();
+    await exec('git', [
+      '-C', dir, 'remote', 'add', 'origin',
+      'https://user:secret123@github.com/ReliOptic/campsite.git',
+    ]);
+    const ctx = await detectContext(dir);
+    expect(ctx.repo_root).not.toBeNull();
+    expect(ctx.remote_url).toBe('https://github.com/ReliOptic/campsite.git');
+    expect(ctx.remote_url).not.toContain('secret123');
+  });
+
   it('git 저장소가 아니면 전부 null (정직한 unknown)', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'cstui-plain-'));
     const ctx = await detectContext(dir);
     expect(ctx.repo).toBeNull();
     expect(ctx.branch).toBeNull();
     expect(ctx.dirty).toBeNull();
+    expect(ctx.repo_root).toBeNull();
+    expect(ctx.remote_url).toBeNull();
   });
 });

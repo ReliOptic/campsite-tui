@@ -7,9 +7,14 @@ import type { Motif } from '../types/session.types.js';
 import { MOTIF_LABELS } from '../types/session.types.js';
 import type { Logger } from '../utils/logger.js';
 import { boolFlag, stringFlag, type ParsedArgs } from '../utils/parse-args.js';
+import { detectTerminalEnv } from '../config/terminal-env.js';
 import { detectContext } from '../services/context.js';
+import { detectEnvironment } from '../services/environment.js';
 import { createSessionService, type ContextUpdate } from '../services/session.js';
 import type { CliResult } from './result.js';
+
+/** context --json 페이로드 형식 버전 — 필드 추가 시에만 증가(additive) */
+const CONTEXT_SCHEMA_VERSION = 1;
 
 const MOTIFS: readonly Motif[] = ['campsite', 'workshop', 'courtroom', 'mission_control', 'lab'];
 
@@ -53,19 +58,22 @@ export async function contextCommand(
 
   const session = await sessions.current();
   const detected = await detectContext(cwd);
+  if (boolFlag(args, 'json')) {
+    // 에이전트 핸드오프 페이로드 — 로컬 정보만, 원격 URL은 자격증명 제거본
+    const environment = await detectEnvironment(detected.repo_root ?? cwd, detectTerminalEnv());
+    return {
+      exitCode: 0,
+      output: JSON.stringify(
+        { schema_version: CONTEXT_SCHEMA_VERSION, session, detected, environment },
+        null,
+        2,
+      ),
+    };
+  }
   if (session === null) {
-    if (boolFlag(args, 'json')) {
-      return { exitCode: 0, output: JSON.stringify({ session: null, detected }, null, 2) };
-    }
     return {
       exitCode: 0,
       output: `${renderDetected(detected)}\n\n세션이 없습니다. cstui context set --task "..." 으로 시작하세요.`,
-    };
-  }
-  if (boolFlag(args, 'json')) {
-    return {
-      exitCode: 0,
-      output: JSON.stringify({ session, detected }, null, 2),
     };
   }
   return { exitCode: 0, output: renderSession(session, detected.dirty) };
