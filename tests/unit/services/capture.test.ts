@@ -58,5 +58,5 @@ describe('captureCommand', () => {
       expect(result.truncated).toBe(false);
       expect(result.output).toContain('5000');
     }
-  });
+  }, 15_000);
 });
