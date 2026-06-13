@@ -8,8 +8,10 @@ import { nowIso } from '../utils/time.js';
 
 const DEFAULT_CAP_BYTES = 2 * 1024 * 1024;
 const EXIT_DRAIN_QUIET_MS = 30;
-const EXIT_DRAIN_MAX_MS = process.platform === 'linux' ? 1000 : 300;
-const EXIT_DRAIN_MIN_MS = process.platform === 'linux' ? EXIT_DRAIN_MAX_MS : EXIT_DRAIN_QUIET_MS;
+const LINUX_DRAIN_QUIET_MS = 120;
+const LINUX_BULK_DRAIN_QUIET_MS = 1000;
+const LINUX_BULK_OUTPUT_BYTES = 256;
+const EXIT_DRAIN_WATCHDOG_MS = process.platform === 'linux' ? 10_000 : 300;
 const ALT_SCREEN_PATTERNS = ['\u001b[?1049h', '\u001b[?47h', '\u001b[?1047h'] as const;
 
 export interface CaptureOptions {
@@ -78,6 +80,13 @@ function cleanEnv(): Record<string, string> {
     if (value !== undefined) env[key] = value;
   }
   return env;
+}
+
+function drainQuietMs(outputBytes: number): number {
+  if (process.platform !== 'linux') return EXIT_DRAIN_QUIET_MS;
+  return outputBytes >= LINUX_BULK_OUTPUT_BYTES
+    ? LINUX_BULK_DRAIN_QUIET_MS
+    : LINUX_DRAIN_QUIET_MS;
 }
 
 /** 터미널 연동(리사이즈·stdin raw 패스스루·SIGINT 전달)을 붙이고 해제 함수를 반환한다. */
@@ -156,10 +165,12 @@ export async function captureCommand(
   const buffer = new CappedBuffer(Math.floor((options.maxBytes ?? DEFAULT_CAP_BYTES) / 2));
   let interactive = false;
   let lastDataAt = Date.now();
+  let outputBytes = 0;
   let scheduleDrainCheck: (() => void) | undefined;
 
   proc.onData((chunk: string) => {
     lastDataAt = Date.now();
+    outputBytes += Buffer.byteLength(chunk, 'utf8');
     if (!interactive && ALT_SCREEN_PATTERNS.some((pattern) => chunk.includes(pattern))) {
       interactive = true;
     }
@@ -173,7 +184,6 @@ export async function captureCommand(
     proc.onExit(({ exitCode, signal }) => {
       const endedAt = nowIso();
       const durationMs = Date.now() - startedMs;
-      const drainStartedMs = Date.now();
       let quietTimer: ReturnType<typeof setTimeout> | undefined;
       let maxTimer: ReturnType<typeof setTimeout> | undefined;
       let resolved = false;
@@ -201,20 +211,17 @@ export async function captureCommand(
         if (resolved) return;
         if (quietTimer !== undefined) clearTimeout(quietTimer);
         const quietForMs = Date.now() - lastDataAt;
-        const drainElapsedMs = Date.now() - drainStartedMs;
-        const quietWaitMs = Math.max(EXIT_DRAIN_QUIET_MS - quietForMs, 0);
-        const minWaitMs = Math.max(EXIT_DRAIN_MIN_MS - drainElapsedMs, 0);
-        const waitMs = Math.max(quietWaitMs, minWaitMs);
-        quietTimer = setTimeout(finish, waitMs);
+        const quietWaitMs = Math.max(drainQuietMs(outputBytes) - quietForMs, 0);
+        quietTimer = setTimeout(finish, quietWaitMs);
       };
 
       // onExit can arrive before the final onData chunk on Linux. Treat exit as
       // the start of a short drain window, then extend it whenever more data lands.
-      // Linux PTY delivery can leave long gaps before tail chunks, so Linux keeps
-      // the bounded drain open until the 1s cap while duration_ms stays exit-based.
+      // node-pty exposes onData/onExit on IPty, but no typed end-of-stream event.
+      // Linux bulk output gets a wider quiet window; the watchdog is hang-only.
       lastDataAt = Date.now();
       scheduleDrainCheck();
-      maxTimer = setTimeout(finish, EXIT_DRAIN_MAX_MS);
+      maxTimer = setTimeout(finish, EXIT_DRAIN_WATCHDOG_MS);
     });
   });
 }
