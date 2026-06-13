@@ -1,9 +1,8 @@
 # Changelog
 
-## Unreleased (main)
+## 0.2.0 — 2026-06-13
 
-> `0.1.0` 게시 이후 main에 머지됐으나 아직 npm에 게시되지 않은 변경.
-> 다음 릴리스 버전(0.1.x 패치 누적 vs 0.2.0 — 기능 추가 포함)은 메인테이너 결정 대기.
+> npm `0.1.0` 이후 누적된 첫 기능 릴리스. 미게시였던 `0.1.1`(PTY 증거 무결성 패치)을 포함한다.
 
 ### Added
 
@@ -17,26 +16,13 @@
 
 ### Fixed
 
+- PTY 종료 후 마지막 출력(tail)이 블록에 기록되기 전 유실되던 문제를 해결 — `onExit` 후 bounded drain 윈도로 출력을 계속 버퍼링 (PR #9). `seq 1 5000` ×10 회귀 테스트로 보증.
 - Linux 고정 1초 drain floor 제거 — 소량 출력은 빠르게 resolve, 대용량 출력만 quiet-window로 tail 보존, watchdog은 hang 상한 전용 (PR #11).
-
-## 0.1.1 — 2026-06-12
-
-### Fixed
-
-- Preserved PTY tail evidence after process exit. `captureCommand` now keeps buffering output for a bounded drain window after `onExit`, so fast Linux commands do not lose their final output chunk before the block is recorded.
-- Added a regression test that captures `seq 1 5000` ten times and verifies the tail value `5000` is present without truncation.
-
-### Verification
-
-- Local: `npm test -- tests/unit/services/capture.test.ts` → 1 file / 7 tests passed.
-- Local: `npm run typecheck`, `npm test`, `npm run build`, `git diff --check` all passed.
-- CI: PR #9 passed both `ubuntu-latest` and `macos-latest`.
 
 ### Notes
 
-- This is a patch release candidate for the Linux evidence-integrity fix from PR #9.
-- Follow-up issue #10 tracks non-blocking improvements: detach stdin immediately at exit and reduce Linux's conservative bounded drain latency when safe.
-- npm publish is intentionally not performed by this commit; publish still requires maintainer OTP.
+- 알려진 한계: Linux 대용량 출력은 종료 후 최대 ~1초 tail-drain 지연 (속도보다 증거 무결성 우선). 후속 이슈 #10에서 추적.
+- npm publish는 이 커밋이 수행하지 않음 — 게시는 메인테이너 OTP 수동 단계.
 
 ## 0.1.0 — 2026-06-11
 
