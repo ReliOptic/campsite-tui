@@ -19,7 +19,7 @@ const blockSchema = z.object({
   started_at: z.string(),
   ended_at: z.string(),
   duration_ms: z.number(),
-  capture_method: z.enum(['pty_runner', 'stdin_pipe', 'wrapper']),
+  capture_method: z.enum(['pty_runner', 'stdin_pipe']),
   dirty: z.boolean().nullable(),
   interactive: z.boolean(),
   truncated: z.boolean(),

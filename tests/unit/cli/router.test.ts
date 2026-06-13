@@ -2,19 +2,21 @@ import { describe, expect, it } from 'vitest';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { Readable } from 'node:stream';
 import { loadConfig } from '../../../src/config/env.js';
 import { createLogger } from '../../../src/utils/logger.js';
 import { runCli, type CliDeps } from '../../../src/cli/router.js';
 
 const VERSION = '0.1.0-test';
 
-async function makeDeps(): Promise<CliDeps> {
+async function makeDeps(stdin?: NodeJS.ReadableStream): Promise<CliDeps> {
   const home = await mkdtemp(join(tmpdir(), 'cstui-cli-'));
   return {
     version: VERSION,
     config: loadConfig({ CAMPSITE_TUI_HOME: home }),
     logger: createLogger({ write: () => undefined }),
     cwd: home,
+    ...(stdin !== undefined ? { stdin } : {}),
   };
 }
 
@@ -98,5 +100,38 @@ describe('runCli', () => {
     const result = await runCli(['context', 'set', '--motif', 'castle'], deps);
     expect(result.exitCode).toBe(1);
     expect(result.output).toContain('campsite');
+  });
+
+  it('capture: stdin 파이프를 stdin_pipe 블록으로 저장한다', async () => {
+    const deps = await makeDeps(Readable.from(['one\n', 'two\n']));
+    const capture = await runCli(
+      ['capture', '--command', 'printf "one\\ntwo\\n"', '--exit-code', '7'],
+      deps,
+    );
+    expect(capture.exitCode).toBe(7);
+    expect(capture.output).toContain('stdin_pipe');
+
+    const last = await runCli(['block', 'last', '--json'], deps);
+    const block = JSON.parse(last.output) as {
+      command: string;
+      output: string;
+      exit_code: number;
+      capture_method: string;
+      signal: number | null;
+      interactive: boolean;
+    };
+    expect(block.command).toBe('printf "one\\ntwo\\n"');
+    expect(block.output).toBe('one\ntwo\n');
+    expect(block.exit_code).toBe(7);
+    expect(block.capture_method).toBe('stdin_pipe');
+    expect(block.signal).toBeNull();
+    expect(block.interactive).toBe(false);
+  });
+
+  it('capture: --exit-code 없이는 실행 결과를 추측하지 않는다', async () => {
+    const deps = await makeDeps(Readable.from(['output\n']));
+    const result = await runCli(['capture', '--command', 'npm test'], deps);
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain('--exit-code');
   });
 });

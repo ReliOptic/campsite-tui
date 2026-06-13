@@ -6,6 +6,7 @@ import type { AppConfig } from '../config/env.js';
 import type { Logger } from '../utils/logger.js';
 import { parseArgs } from '../utils/parse-args.js';
 import { blockCommand } from './block-command.js';
+import { captureCommand } from './capture-command.js';
 import { contextCommand } from './context-command.js';
 import { doctorCommand } from './doctor-command.js';
 import { openCommand } from './open-command.js';
@@ -19,6 +20,7 @@ export interface CliDeps {
   readonly config: AppConfig;
   readonly logger: Logger;
   readonly cwd: string;
+  readonly stdin?: NodeJS.ReadableStream;
 }
 
 const USAGE = `Campsite TUI — 터미널 작업을 증거 블록으로 (블록, 맥락, 액션)
@@ -26,6 +28,7 @@ const USAGE = `Campsite TUI — 터미널 작업을 증거 블록으로 (블록,
 사용법:
   cstui open                             TUI 블록 브라우저 열기
   cstui run "명령"                       명령을 실행하고 블록으로 저장
+  cstui capture --command "명령"         stdin을 블록으로 저장 (--exit-code 필수)
   cstui block list [--n 10] [--json]     최근 블록 목록
   cstui block last [--json]              마지막 블록 상세
   cstui block copy-last                  마지막 블록을 클립보드로 복사
@@ -55,6 +58,8 @@ export async function runCli(argv: readonly string[], deps: CliDeps): Promise<Cl
       return contextCommand(args, deps.config, deps.logger, deps.cwd);
     case 'run':
       return runCommand(args, deps);
+    case 'capture':
+      return captureCommand(args, deps);
     case 'block':
       return blockCommand(args, deps);
     case 'open':
