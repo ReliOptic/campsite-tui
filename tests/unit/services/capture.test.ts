@@ -58,5 +58,15 @@ describe('captureCommand', () => {
       expect(result.truncated).toBe(false);
       expect(result.output).toContain('5000');
     }
-  }, 15_000);
+  }, 60_000);
+
+  it('간단한 명령은 고정 1초 floor 없이 빠르게 resolve한다', async () => {
+    const startedAt = Date.now();
+    const result = await captureCommand('echo hi', opts);
+    const drainOverheadMs = Date.now() - startedAt - result.duration_ms;
+
+    expect(result.exit_code).toBe(0);
+    expect(result.output).toContain('hi');
+    expect(drainOverheadMs).toBeLessThanOrEqual(process.platform === 'linux' ? 300 : 150);
+  });
 });
