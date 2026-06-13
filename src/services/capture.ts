@@ -9,7 +9,7 @@ import { nowIso } from '../utils/time.js';
 const DEFAULT_CAP_BYTES = 2 * 1024 * 1024;
 const EXIT_DRAIN_QUIET_MS = 30;
 const LINUX_DRAIN_QUIET_MS = 120;
-const LINUX_BULK_DRAIN_QUIET_MS = 1000;
+const LINUX_BULK_DRAIN_QUIET_MS = 2000;
 const LINUX_BULK_OUTPUT_BYTES = 256;
 const EXIT_DRAIN_WATCHDOG_MS = process.platform === 'linux' ? 10_000 : 300;
 const ALT_SCREEN_PATTERNS = ['\u001b[?1049h', '\u001b[?47h', '\u001b[?1047h'] as const;
