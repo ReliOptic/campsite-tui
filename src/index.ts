@@ -21,6 +21,7 @@ async function main(): Promise<void> {
       config,
       logger,
       cwd: process.cwd(),
+      stdin: process.stdin,
     },
   );
   process.stdout.write(`${result.output}\n`);

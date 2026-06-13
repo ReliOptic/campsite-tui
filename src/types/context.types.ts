@@ -5,7 +5,7 @@
  */
 
 /** 블록 캡처 방법 — 캡처 신뢰 수준을 블록에 정직하게 명시 (TECH-SPEC T2/T9) */
-export type CaptureMethod = 'pty_runner' | 'stdin_pipe' | 'wrapper';
+export type CaptureMethod = 'pty_runner' | 'stdin_pipe';
 
 /** 세션/블록에 공통으로 부착되는 최소 컨텍스트 (PRD §10.3 minimum) */
 export interface WorkContext {
